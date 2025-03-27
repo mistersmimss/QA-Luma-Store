@@ -1,0 +1,119 @@
+# AWS
+provider "aws" {
+  region = "sa-east-1a"
+}
+
+#VPC
+resource "aws_vpc" "main" {
+  cidr_block = "10.0.0.0/16"
+  tags = {
+    Name = "Luma-store-vpc"
+  }
+}
+
+#  Subnet
+resource "aws_subnet" "main" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = "10.0.1.0/24"
+  availability_zone       = "sa-east-1a"
+  map_public_ip_on_launch = true
+  tags = {
+    Name = "Luma-subnet"
+  }
+}
+
+# Criando o Gateway de Internet
+resource "aws_internet_gateway" "main" {
+  vpc_id = aws_vpc.main.id
+  tags = {
+    Name = "Luma-igw"
+  }
+}
+
+# Criando a tabela de rotas
+resource "aws_route_table" "main" {
+  vpc_id = aws_vpc.main.id
+  tags = {
+    Name = "Luma-route-table"
+  }
+}
+
+resource "aws_route" "internet_access" {
+  route_table_id         = aws_route_table.main.id
+  destination_cidr_block = "0.0.0.0/0"
+  gateway_id             = aws_internet_gateway.main.id
+}
+
+#  subnet
+resource "aws_route_table_association" "main" {
+  subnet_id      = aws_subnet.main.id
+  route_table_id = aws_route_table.main.id
+}
+
+# VPN Endpoint
+resource "aws_ec2_client_vpn_endpoint" "vpn" {
+  client_cidr_block        = "10.0.2.0/22"
+  server_certificate_arn   = "arn:aws:acm:REGION:ACCOUNT:certificate/EXAMPLE" # Substituir pelo ARN do certificado SSL
+  authentication_options {
+    type = "certificate-authentication"
+    root_certificate_chain_arn = "arn:aws:acm:REGION:ACCOUNT:certificate/ROOT_CERT" # ARN do certificado raiz
+  }
+  connection_log_options {
+    cloudwatch_log_group  = "log-group"
+    cloudwatch_log_stream = "log-stream"
+    enabled = true
+  }
+  vpc_id = aws_vpc.main.id
+}
+
+# Servidor
+resource "aws_instance" "web_server" {
+  ami           = "ami-12345678" # Substitua pela AMI correta
+  instance_type = "t2.micro"
+  subnet_id     = aws_subnet.main.id
+  key_name      = "Lumakey-ssh" # Substitua pelo nome da chave SSH
+
+  user_data = <<-EOF
+    #!/bin/bash
+    apt-get update -y
+    apt-get upgrade -y
+    apt-get install -y ufw
+    ufw allow 22
+    ufw allow from 10.0.2.0/22
+    ufw enable
+  EOF
+
+  tags = {
+    Name = "Luma-web-server"
+  }
+}
+
+# Grupo de Segurança restrito à VPN
+resource "aws_security_group" "vpn_sg" {
+  vpc_id = aws_vpc.main.id
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.2.0/22"] # Apenas a rede da VPN pode acessar
+  }
+
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.2.0/22"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "Luma-vpn-security-group"
+  }
+}
