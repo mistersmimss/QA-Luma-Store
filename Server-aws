@@ -1,4 +1,4 @@
-# AWS
+# AWS - Início
 provider "aws" {
   region = "sa-east-1a"
 }
@@ -22,7 +22,7 @@ resource "aws_subnet" "main" {
   }
 }
 
-# Criando o Gateway de Internet
+#  Gateway 
 resource "aws_internet_gateway" "main" {
   vpc_id = aws_vpc.main.id
   tags = {
@@ -30,7 +30,7 @@ resource "aws_internet_gateway" "main" {
   }
 }
 
-# Criando a tabela de rotas
+#  tabela de rotas
 resource "aws_route_table" "main" {
   vpc_id = aws_vpc.main.id
   tags = {
@@ -53,10 +53,10 @@ resource "aws_route_table_association" "main" {
 # VPN Endpoint
 resource "aws_ec2_client_vpn_endpoint" "vpn" {
   client_cidr_block        = "10.0.2.0/22"
-  server_certificate_arn   = "arn:aws:acm:REGION:ACCOUNT:certificate/EXAMPLE" # Substituir pelo ARN do certificado SSL
+  server_certificate_arn   = "arn:aws:acm:REGION:ACCOUNT:certificate/lumasotre"  
   authentication_options {
     type = "certificate-authentication"
-    root_certificate_chain_arn = "arn:aws:acm:REGION:ACCOUNT:certificate/ROOT_CERT" # ARN do certificado raiz
+    root_certificate_chain_arn = "arn:aws:acm:REGION:ACCOUNT:certificate/luma_CERT" 
   }
   connection_log_options {
     cloudwatch_log_group  = "log-group"
@@ -68,10 +68,10 @@ resource "aws_ec2_client_vpn_endpoint" "vpn" {
 
 # Servidor
 resource "aws_instance" "web_server" {
-  ami           = "ami-12345678" # Substitua pela AMI correta
+  ami           = "luma-12345678" 
   instance_type = "t2.micro"
   subnet_id     = aws_subnet.main.id
-  key_name      = "Lumakey-ssh" # Substitua pelo nome da chave SSH
+  key_name      = "Lumakey-ssh" 
 
   user_data = <<-EOF
     #!/bin/bash
